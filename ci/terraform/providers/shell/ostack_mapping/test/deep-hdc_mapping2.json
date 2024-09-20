@@ -1,0 +1,50 @@
+[
+  {
+    "local": [
+      {
+        "user": {
+          "name": "{0}",
+          "email": "{1}"
+        }
+      }
+    ],
+    "remote": [
+      {
+        "type": "OIDC-sub"
+      },
+      {
+        "type": "OIDC-email"
+      }
+    ]
+  },
+  {
+    "local": [
+      {
+        "projects": [
+          {
+            "name": "deep-hdc",
+            "roles": [
+              {
+                "name": "member"
+              },
+              {
+                "name": "heat_stack_owner"
+              },
+              {
+                "name": "image_uploader"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "remote": [
+      {
+        "type": "OIDC-sub",
+        "any_one_of": [
+          "f13ce837-25a6-49a5-bf19-a050c4caf422"
+        ]
+      }
+    ]
+  }
+]

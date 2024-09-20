@@ -1,0 +1,21 @@
+- name: "Check if 'task' variable is defined"
+  fail:
+    msg: "'task' variable must be defined"
+  when: task is undefined
+
+
+- name: "Check if required playbook for {{ task }} task is present"
+  block:
+    - set_fact:
+        task_playbook_to_check: "{{ [role_path | realpath, 'tasks', '{{ task }}.yml'] | path_join }}"
+    
+    - stat:
+        path: "{{ task_playbook_to_check }}"
+      register: task_playbook_stat
+
+    - fail:
+        msg: "Required {{ task }}.yml task playbook not present in image role"
+      when: not task_playbook_stat.stat.exists
+
+- name: "Perform specified task {{ task }}.yml"
+  include_tasks: "{{ task }}.yml"

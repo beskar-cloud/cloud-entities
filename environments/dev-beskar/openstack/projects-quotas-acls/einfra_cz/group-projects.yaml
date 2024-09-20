@@ -1,0 +1,12 @@
+metadata:
+  contacts:
+  - cloud@metacentrum.cz
+project:
+  name: group-projects
+  domain: einfra_cz
+  description: "Umbrella project for all group projects in einfra_cz domain"
+  enabled: true
+  tags:
+  - cloud
+quota: {}
+acls: {}

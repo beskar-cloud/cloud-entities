@@ -1,0 +1,164 @@
+# general metadata section used in terraform code generation, notifications, etc
+metadata:
+  # project contact people (emails)
+  contacts:
+  - cloud@metacentrum.cz
+  # project lifetime management
+  # project gets disabled after disable-date (if defined and enabled is not specified)
+  #disable-date: 2030-06-09
+  # project gets deleted after removal-date (if defined)
+  #removal-date: 2050-10-10
+
+# openstack_identity_project_v3 resource parameters
+project:
+  name: admin
+  domain: einfra_cz
+  description: "This project intended for OpenStack administration, it signifies user's membership in the admin team."
+  enabled: true
+  tags:
+  - cloud
+  #- default-group-project-networking=false tag is used to disable creation of default group project networking
+
+# various project related quotas 
+# (openstack_lb_quota_v2, openstack_blockstorage_quotaset_v3, openstack_compute_quotaset_v2, openstack_networking_quota_v2)
+quota:
+  # Nova quotas
+  instances: -1
+  cores: -1
+  ram: -1
+  # Cinder quotas
+  gigabytes: -1
+  snapshots: -1
+  volumes: -1
+  per_volume_gigabytes: -1
+  backups: -1
+  backup_gigabytes: -1
+  groups: -1
+  # Neutron quotas
+  network: -1
+  subnet: -1
+  subnetpool: -1
+  floatingip: -1
+  port: -1
+  router: -1
+  rbac_policy: -1
+  security_group: -1
+  security_group_rule: -1
+  # Barbican quotas
+  cas: -1
+  consumers: -1
+  containers: -1
+  orders: -1
+  secrets: -1
+
+# project related ACLs to flavors, networks, mappings, ...
+acls:
+  flavors:
+  - a3.4core-8ram-2x-nvidia-2080
+  - a3.4core-8ram-nvidia-2080
+  - a3.4core-16ram-2x-nvidia-2080
+  - a3.4core-16ram-nvidia-2080
+  - a3.4core-30ram-2x-nvidia-2080
+  - a3.4core-30ram-nvidia-2080
+  - a3.8core-16ram-2x-nvidia-2080
+  - a3.8core-16ram-nvidia-2080
+  - a3.8core-30ram-2x-nvidia-2080
+  - a3.8core-30ram-nvidia-2080
+  - a3.8core-60ram-2x-nvidia-2080
+  - a3.8core-60ram-nvidia-2080
+  - a3.16core-30ram-2x-nvidia-2080
+  - a3.16core-30ram-nvidia-2080
+  - a3.16core-60ram-2x-nvidia-2080
+  - a3.16core-60ram-nvidia-2080
+  - a3.24core-30ram-2x-nvidia-2080
+  - a3.24core-30ram-nvidia-2080
+  - a3.24core-60ram-2x-nvidia-2080
+  - a3.24core-60ram-nvidia-2080  
+  - m1.tiny
+  - m1.small
+  - m1.medium
+  - m1.large
+  - m1.xlarge
+  - c2.2core-8ram
+  - c2.2core-16ram
+  - c2.2core-30ram
+  - c2.4core-8ram
+  - c2.4core-16ram
+  - c2.4core-30ram
+  - c2.8core-16ram
+  - c2.8core-30ram
+  - c2.16core-30ram
+  - c2.16core-60ram
+  - c2.18core-45ram
+  - c2.24core-30ram
+  - c2.24core-60ram
+  - c2.30core-30ram
+  - c2.30core-60ram
+  - c2.30core-120ram
+  - c2.20core-240ram
+  - c3.2core-8ram
+  - c3.2core-16ram
+  - c3.2core-30ram
+  - c3.4core-8ram
+  - c3.4core-16ram
+  - c3.4core-30ram
+  - c3.8core-8ram-100disk
+  - c3.8core-16ram
+  - c3.8core-30ram
+  - c3.8core-60ram
+  - c3.8core-120ram
+  - c3.16core-30ram
+  - c3.16core-30ram-100disk
+  - c3.16core-60ram
+  - c3.16core-120ram
+  - c3.16core-240ram
+  - c3.18core-45ram
+  - c3.24core-30ram
+  - c3.24core-60ram
+  - c3.24core-90ram
+  - c3.24core-240ram
+  - c3.30core-30ram
+  - c3.30core-60ram
+  - c3.30core-120ram
+  - c3.30core-240ram
+  - c3.60core-60ram
+  - c3.60core-120ram
+  - c3.60core-240ram
+  - c3.120core-120ram
+  - c3.120core-240ram
+  - e1.16core-30ram
+  - e1.20core-60ram
+  - g2.1core-2ram
+  - g2.1core-4ram
+  - g2.2core-4ram
+  - g2.4core-30ram
+  - g2.8core-30ram
+  - g2.8core-60ram
+  - g2.2core-16ram
+  - g2.1xlarge
+  - g2.2xlarge
+  - g2.3xlarge
+  - g2.large
+  - p3.2core-4ram
+  - p3.2core-8ram
+  - p3.2core-16ram
+  - p3.2core-30ram
+  - p3.4core-8ram
+  - p3.4core-16ram
+  - p3.4core-16ram-500edisk
+  - p3.4core-30ram
+  - p3.8core-16ram
+  - p3.8core-30ram
+  - p3.8core-30ram-2700edisk
+  - p3.8core-60ram
+  - p3.8core-60ram-500edisk
+  - p3.12core-60ram-500edisk
+  - p3.16core-30ram
+  - p3.16core-60ram
+  - p3.16core-60ram-500edisk
+  - p3.24core-30ram
+  - p3.24core-60ram
+  - p3.30core-120ram-500edisk
+  - r3.8core-16ram-30edisk
+  - r3.8core-16ram
+  user-role-mappings: []

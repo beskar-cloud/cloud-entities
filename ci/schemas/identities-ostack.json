@@ -1,0 +1,23 @@
+{
+    "$id": "https://example.com/openstack-entities.project.schema.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+
+    "title": "AAI OpenStack project linked identities (aai-entity-merge.py product)",
+    "type": "object",
+
+    "patternProperties": {
+        "^([a-zA-Z_-]+)$": {
+            "type": "object",
+            "required": ["managers", "users"],
+
+            "patternProperties": {
+                "^(managers|users)$": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        }
+    }
+}

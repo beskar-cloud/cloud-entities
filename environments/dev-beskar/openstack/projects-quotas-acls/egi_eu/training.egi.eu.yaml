@@ -1,0 +1,30 @@
+# This is demonstration of EGI group project
+metadata:
+  contacts:
+  - xyz@egi.eu
+  - cloud@metacentrum.cz
+project:
+  name: &prjname training.egi.eu
+  domain: egi_eu
+  description: >-
+    Project supporting VO training.egi.eu from EGI, see https://operations-portal.egi.eu/vo/ for details.
+  parent: group-projects
+  tags:
+  - egi
+  - caso
+  properties:
+    VO: *prjname
+quota:
+  # networking (neutron) quota
+  cores: 400
+  instances: 25
+  ram: 1500000
+  gigabytes: 15400
+  network: 3
+  subnet: 3
+  router: 3
+  floatingip: 8
+acls:
+  flavors:
+  - c3.8core-120ram
+  user-role-mappings: []

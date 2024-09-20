@@ -1,0 +1,4 @@
+external_network_name: external-ipv4-general-public
+#cidr: "192.168.0.0/24"
+group_projects_umbrella_project_name: group-projects
+domain_name: einfra_cz

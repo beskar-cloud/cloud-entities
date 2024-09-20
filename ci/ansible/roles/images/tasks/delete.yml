@@ -1,0 +1,56 @@
+- name: "Fetch all community OpenStack images"
+  openstack.cloud.image_info:
+    #admin_owner_id_filter is specified by image rotation
+    #for fetching correct official images
+    filters: "{{ {'visibility': 'community'} | combine(admin_owner_id_filter) if admin_owner_id_filter is defined else {'visibility': 'community'} }}"
+  register: ostack_community_images_result
+
+- set_fact:
+    community_images_with_image_rotation_tags: []
+
+- name: "Keep community OpenStack images with image-rotation tags"
+  set_fact:
+    community_images_with_image_rotation_tags: "{{ community_images_with_image_rotation_tags + [i_community_ostack_image] }}"
+  loop: "{{ ostack_community_images_result.images }}"
+  loop_control:
+    loop_var: i_community_ostack_image
+  # Checking exactly for tag required by delete task
+  when: i_community_ostack_image.tags | select("search", "^image-rotation/delete-as-obsolete-([0-9]{4}-[0-9]{2}-[0-9]{2})$") | length == 1
+
+- set_fact:
+    image_ids_used_by_vms: []
+
+# In this section all servers from OpenStack are fetched.
+# It is possible to do per image lookups, however, that 
+# would create a great number of requests to OpenStack
+# and it would require saving every result per request
+# to be able to work with that data.
+- name: "Fetch all OpenStack servers"
+  openstack.cloud.server_info:
+    all_projects: true
+  register: ostack_servers_result
+
+- name: "Fetch all image IDs used by OpenStack VMs"
+  set_fact:
+    image_ids_used_by_vms: "{{ image_ids_used_by_vms + [i_server.image_id] }}"
+  loop: "{{ ostack_servers_result.servers }}"
+  loop_control:
+    loop_var: i_server
+
+- name: "Delete obsolete community images nobody uses"
+  vars: 
+    delete_date_string: "{{ (i_tagged_community_ostack_image.tags | select('search', '^image-rotation/delete-as-obsolete-([0-9]{4}-[0-9]{2}-[0-9]{2})$'))[0] | regex_search('([0-9]{4}-[0-9]{2}-[0-9]{2})') }}"  
+  openstack.cloud.image:
+    name: "{{ i_tagged_community_ostack_image.name }}"
+    id: "{{ i_tagged_community_ostack_image.id }}"
+    state: "absent"
+  loop: "{{ community_images_with_image_rotation_tags }}"
+  loop_control:
+    loop_var: i_tagged_community_ostack_image
+  # to_datetime conversions must be here otherwise Ansible converts
+  # datetime objects into 'AnsibleUnsafeText' type
+  when: 
+   - ((delete_date_string | to_datetime("%Y-%m-%d")) - (now(fmt="%Y-%m-%d") | to_datetime("%Y-%m-%d"))).days <= 0
+   - i_tagged_community_ostack_image.id not in image_ids_used_by_vms
+
+

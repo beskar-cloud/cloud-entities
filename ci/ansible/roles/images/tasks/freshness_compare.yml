@@ -1,0 +1,27 @@
+- name: "Acquire Ostack checksums for images from declarations"
+  openstack.cloud.image_info:
+    image: "{{ i_image_declaration.name }}"
+    #admin_owner_id_filter is specified by image rotation
+    #for fetching correct official images
+    filters: "{{ admin_owner_id_filter | default({}) }}"
+  register: ostack_image_result
+
+- fail:
+    msg: "Multiple images named {{ i_image_declaration.name }} detected"
+  when: ostack_image_result.images | length > 1
+
+- block:
+  - name: "{{ i_image_declaration.name }} image will be rotated"
+    set_fact:
+      not_fresh_image_declarations: "{{ not_fresh_image_declarations + [i_image_declaration] }}"
+  when:
+  - ostack_image_result.images | length == 1
+  - ostack_image_result.images[0].properties.pre_upload_sha256sum is defined
+  - i_image_declaration.image_source_url in upstream_sha256_checksums
+  - upstream_sha256_checksums[i_image_declaration.image_source_url] != ostack_image_result.images[0].properties.pre_upload_sha256sum
+
+- block:
+  - name: "{{ i_image_declaration.name }} image will be uploaded"
+    set_fact:
+      not_existing_images: "{{ not_existing_images + [i_image_declaration] }}"
+  when: ostack_image_result.images | length == 0

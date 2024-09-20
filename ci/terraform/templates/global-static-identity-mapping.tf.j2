@@ -1,0 +1,20 @@
+# OpenStack identity mapping terraform declaration
+
+resource "shell_script" "{{ name | replace("-", "_") }}" {
+    provider = shell.ostack_mapping
+
+    lifecycle_commands {
+        create = local.shell_ostack_mapping_create
+        read   = local.shell_ostack_mapping_read
+        update = local.shell_ostack_mapping_update
+        delete = local.shell_ostack_mapping_delete
+    }
+
+    environment = {
+        ACTIONS_DIR = local.shell_ostack_mapping_script_dir
+        NAME        = "{{ name }}"
+        RULES_FILE  = "${path.module}/{{ name }}-mapping-rules.json"
+    }
+
+    working_directory = path.module
+}

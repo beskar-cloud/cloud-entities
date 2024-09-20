@@ -1,0 +1,41 @@
+{
+    "$id": "https://example.com/openstack-entities.project.schema.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+
+    "title": "AAI merged identities (aai-entity-merge.py product)",
+    "type": "object",
+    "required": ["access", "instances"],
+    "properties": {
+        "access": {
+            "type": "array",
+            "description": "AAI identities.",
+            "items": {
+                "type": "object",
+                "required": ["additional_identifiers", "identifier", "emails", "personal_project", "projects_access", "projects_manager", "name", "expiration"],
+                "patternProperties": {
+                    "^personal_project$": {
+                        "type": "boolean"
+                    },
+                    "^(identifier)$": {
+                        "type": "string"
+                    },
+                    "^(additional_identifiers|projects_access|projects_manager|emails)$": {
+                        "type": "array",
+                        "items": { "type": "string" }
+                    },
+                    "^(name|expiration)$": { 
+                        "type": ["string", "null"]
+                    }
+                }
+            }
+        },
+        "instances": {
+            "type": "array",
+            "description": "AAI instance names. Order shows merging approach. First is the main AAI instance.",
+            "items": {
+                "type": "string",
+                "pattern": "^einfra|muni$"
+            }
+        }
+    }
+}

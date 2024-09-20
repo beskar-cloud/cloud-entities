@@ -1,0 +1,48 @@
+- name: "Fetch PARENT_PROJECT domain:{{ domain }} project-name:{{ parent_project_name }}"
+  openstack.cloud.project_info:
+    name: "{{ parent_project_name }}"
+    domain: "{{ domain }}"
+  register: PARENT_PROJECT
+
+- name: "Debug: PARENT_PROJECT"
+  ansible.builtin.debug:
+    var: PARENT_PROJECT
+
+- name: Single parent project fetched
+  ansible.builtin.assert:
+    that:
+      - PARENT_PROJECT.projects | length == 1
+
+- name: "PARENT_PROJECT isn't tagged as quota propagation enabled {{ enabled_project_tag }}"
+  when: enabled_project_tag not in PARENT_PROJECT.projects[0].tags
+  ansible.builtin.debug:
+    msg: "Project isn't enabled for quota propagation by tag: {{ enabled_project_tag }}"
+
+- name: "Quota propagation enabled, tag {{ enabled_project_tag }} present in {{ domain }}/{{ parent_project_name }} tags"
+  when: enabled_project_tag in PARENT_PROJECT.projects[0].tags
+  block:
+
+  - name: Fetch PARENT_PROJECT children
+    openstack.cloud.project_info:
+      filters:
+        parent_id: "{{ PARENT_PROJECT.projects[0].id }}"
+    register: CHILD_PROJECTS
+
+  - name: "Debug: CHILD_PROJECTS"
+    ansible.builtin.debug:
+      var: CHILD_PROJECTS
+
+  - name: Fetch PARENT_PROJECT_QUOTA
+    openstack.cloud.quota:
+      name: "{{ PARENT_PROJECT.projects[0].id }}"
+    register: PARENT_PROJECT_QUOTA
+
+  - name: "Debug: PARENT_PROJECT_QUOTA"
+    ansible.builtin.debug:
+      var: PARENT_PROJECT_QUOTA
+
+  - name: Propagate PARENT_PROJECT quota to CHILD_PROJECTS
+    include_tasks: propagate_quota.yml
+    loop: "{{ CHILD_PROJECTS.projects }}"
+    loop_control:
+      loop_var: project

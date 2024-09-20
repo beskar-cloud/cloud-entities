@@ -1,0 +1,11 @@
+python3-minimal
+python3-pip
+terraform
+openssh-client
+jq
+gawk
+git
+moreutils
+coreutils
+qemu-utils
+#ansible-core

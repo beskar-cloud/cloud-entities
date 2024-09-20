@@ -1,0 +1,119 @@
+- name: "Check if required variables are defined"
+  fail:
+    msg: "'cloud_entities_image_folder', 'freshness_checksum_file_url' and 'max_mins_duration' variables must be defined"
+  when: cloud_entities_image_folder is undefined or freshness_checksum_file_url is undefined or max_mins_duration is undefined
+
+- name: "Save starting time"
+  set_fact:
+    start_time: "{{ now(fmt='%H%M%S') }}"
+
+- name: "Get 'admin' project ID for filtering right images"
+  openstack.cloud.project_info:
+    name: "admin"
+    domain: "default"
+  register: ostack_admin_project_result
+  when: no_admin_owner_id_filter is undefined or no_admin_owner_id_filter != "true"
+
+- fail: 
+    msg: "'admin' project was not found" 
+  when: 
+  # if no_admin_owner_id_filter is set to 'true' as string it skips admin_id image filter
+  - no_admin_owner_id_filter is undefined or no_admin_owner_id_filter != "true"
+  - ostack_admin_project_result.projects | length == 0
+
+- fail:
+    msg: "Multiple projects named 'admin' found"
+  when: 
+  # if no_admin_owner_id_filter is set to 'true' as string it skips admin_id image filter
+  - no_admin_owner_id_filter is undefined or no_admin_owner_id_filter != "true"
+  - ostack_admin_project_result.projects | length > 1 
+
+- name: "Saving 'admin' project ID for correct image filtering"
+  set_fact:
+    admin_owner_id_filter: {"owner_id": "{{ ostack_admin_project_result.projects[0].id }}"}
+  when: no_admin_owner_id_filter is undefined or no_admin_owner_id_filter != "true"
+
+- name: "Fetch all OpenStack images declarations"
+  find:
+    path: "{{ cloud_entities_image_folder | realpath }}"
+    file_type: file
+    patterns: ['*.yml', '*.yaml', '**/*.yml', '**/*.yaml']
+  register: image_declarations_paths
+
+- name: "Following image declarations were found" 
+  debug:
+    msg: "{{ item['path'] }}"
+  loop: "{{ image_declarations_paths['files'] }}"
+
+- set_fact:
+    image_declarations: []
+
+- name: "Read declarations contents"
+  vars:
+    yaml_content: "{{ lookup('file', i_declarations_path_lookup['path']) | from_yaml }}"
+  set_fact:
+    image_declarations: "{{ image_declarations + [yaml_content] }}"
+  loop: "{{ image_declarations_paths['files'] }}"
+  loop_control:
+    loop_var: i_declarations_path_lookup
+
+- name: "Ensure freshness checksum file from {{ freshness_checksum_file_url }} is locally available"
+  get_url:
+    url: "{{ freshness_checksum_file_url }}"
+    dest: "/tmp/CHECKSUMS"
+    mode: 0600
+
+- set_fact:
+    upstream_sha256_checksums: {}
+
+# Current format of upstream freshness checksum keeper
+# file format is: <IMAGE_FILE_URL>   <IMAGE_FILE_SHA256_CHECKSUM>
+- name: "Read and save checksums from SHA256 upstream checksum file"
+  vars:
+    image_file_url: "{{ line.split()[0] }}"
+    image_file_checksum: "{{ line.split()[1] }}"
+  set_fact:
+    upstream_sha256_checksums: "{{ upstream_sha256_checksums | combine({ image_file_url: image_file_checksum} ) }}"
+  loop: "{{ lookup('file', '/tmp/CHECKSUMS').splitlines() }}"
+  loop_control:
+    loop_var: line
+  when: line.strip() != "" and line.split() | length == 2
+
+- set_fact:
+    not_existing_images: []
+    not_fresh_image_declarations: []
+
+# This task sets a variable named 'not_fresh_image_declarations'.
+# It is a list keeping items from 'image_declarations' where Ostack
+# image is not fresh.
+- name: "Keep declarations of not fresh images"
+  include_tasks: "freshness_compare.yml"
+  loop: "{{ image_declarations }}" 
+  loop_control: 
+    loop_var: i_image_declaration
+
+- name: "Upload images"
+  include_tasks: "upload.yml"
+  loop: "{{ not_existing_images }}"
+  loop_control:
+    loop_var: image_declaration_content
+
+# Time detection condition in "Rotate images" cannot be here
+# but in block present in "rotate_loop.yml" because Ansible
+# first decides condition for all items in loop and then works
+# with them which means it wouldn't perform additional time
+# checks when it finishes an iteration.
+- name: "Rotate images"
+  include_tasks: "rotate_loop.yml"
+  loop: "{{ not_fresh_image_declarations }}"
+  loop_control:
+    loop_var: i_image_declaration_to_rotate
+  when: image_rotation_enabled
+
+- name: "Perform move obsolete public images to community task"
+  include_tasks: "move_to_community.yml"
+  when: image_move_to_community_enabled and ((now(fmt="%H%M%S") | to_datetime("%H%M%S")) - (start_time | to_datetime("%H%M%S"))).total_seconds() < ((max_mins_duration | float) * 60)
+
+- name: "Perform delete obsolete image nobody uses task"
+  include_tasks: "delete.yml"
+  when: image_delete_enabled and ((now(fmt="%H%M%S") | to_datetime("%H%M%S")) - (start_time | to_datetime("%H%M%S"))).total_seconds() < ((max_mins_duration | float) * 60)

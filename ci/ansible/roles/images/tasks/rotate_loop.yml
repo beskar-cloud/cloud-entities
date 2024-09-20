@@ -1,0 +1,27 @@
+- block:
+  
+  - name: "Prepare required variables for upload of declared {{ i_image_declaration_to_rotate.name }} image"
+    set_fact: 
+      image_declaration_content: "{{ i_image_declaration_to_rotate }}"
+      ostack_register_image_name: "swap-{{ i_image_declaration_to_rotate.name }}-{{ now(fmt='%Y-%m-%d') }}"
+
+  - name: "Upload new image as {{ ostack_register_image_name }}"
+    include_tasks: "upload.yml"
+
+  - name: "Prepare required variables for image swap"
+    set_fact: 
+      obsolete_image_name: "{{ i_image_declaration_to_rotate.name }}"
+      swap_image_name: "{{ ostack_register_image_name }}"
+
+  - name: "Swap {{ ostack_register_image_name }} as new {{ i_image_declaration_to_rotate.name }}"
+    include_tasks: "swap.yml"
+
+  # This check requires to_dateime conversions because otherwise
+  # Ansible will save result from set_fact as 'AnsibleUnsafeText' type
+  #
+  # IMPORTANT: This check must be at this place not in the section invoking 'include_tasks'
+  # because Ansible when loop is used decides the condition in 'when' attribute for all items
+  # before iterating and is not updating this decision afterwards. This means if this condition
+  # would be in section invoking 'include_tasks', all items would be iterated regardless if time
+  # already ran out.
+  when: ((now(fmt="%H%M%S") | to_datetime("%H%M%S")) - (start_time | to_datetime("%H%M%S"))).total_seconds() < ((max_mins_duration | float) * 60)

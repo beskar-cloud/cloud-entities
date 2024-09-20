@@ -1,0 +1,8 @@
+parent_project_name: personal-projects
+domain: egi_eu
+
+# Used with the parent project
+enabled_project_tag: project_nested_quota_propagation.enable=true
+
+# Optionally used with child projects
+disabled_project_tag: project_nested_quota_propagation.enable=false

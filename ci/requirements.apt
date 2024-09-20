@@ -1,0 +1,9 @@
+python3-minimal
+python3-pip
+#terraform # available in the container image
+openssh-client
+jq
+gawk
+git
+moreutils
+

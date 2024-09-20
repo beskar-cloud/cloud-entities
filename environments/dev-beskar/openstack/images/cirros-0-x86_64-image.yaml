@@ -1,0 +1,24 @@
+name: cirros-0-x86_64
+image_source_url: http://download.cirros-cloud.net/0.6.2/cirros-0.6.2-x86_64-disk.img
+image_source_checksum_url: http://download.cirros-cloud.net/0.6.2/MD5SUMS
+image_source_checksum_type: md5
+container_format: bare
+disk_format: raw
+visibility: public
+min_disk: 1
+min_ram: 1024
+properties:
+  min_disk_gb:         "1"
+  min_ram_mb:          "1024"
+  requires_rdp:        "False"
+  requires_ssh:        "True"
+  os_type:             linux
+  os_distro:           cirros
+  os_flavor:           CirrOS
+  os_version:          "0.6.2"
+  default_user:        cirros
+  hw_scsi_model:       virtio-scsi
+  hw_disk_bus:         scsi
+  hw_rng_model:        virtio
+  hw_qemu_guest_agent: "yes"
+  os_require_quiesce:  "yes"

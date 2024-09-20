@@ -1,0 +1,17 @@
+metadata:
+  contacts:
+  - cloud@metacentrum.cz
+project:
+  name: personal-projects
+  domain: egi_eu
+  description: "Umbrella project for all personal projects in egi_eu domain"
+  enabled: true
+  tags:
+  - egi                                              # internal cloud statistics tag
+  - caso                                             # make sure accounting is enabled
+  - children-project-clean-up.enable=true            # project clean-up for children projects
+  - project_nested_quota_propagation.enable=true     # ostack quota (*) propagation to children projects
+  - egi.AppDB.enable_project_nested_propagation=true # AppDB appliances propagation to children projects
+quota: # (*)
+  instances: 15
+acls: {}

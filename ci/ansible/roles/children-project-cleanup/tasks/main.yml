@@ -1,0 +1,60 @@
+- name: "Fetch PARENT_PROJECT domain:{{ domain }} project-name:{{ parent_project_name }}"
+  openstack.cloud.project_info:
+    name: "{{ parent_project_name }}"
+    domain: "{{ domain }}"
+  register: PARENT_PROJECT
+
+- name: "Debug: PARENT_PROJECT domain:{{ domain }} project-name:{{ parent_project_name }}"
+  ansible.builtin.debug:
+    var: PARENT_PROJECT
+
+- name: Single parent project fetched
+  ansible.builtin.assert:
+    that:
+      - PARENT_PROJECT.projects | length == 1
+
+- name: "PARENT_PROJECT domain:{{ domain }} project-name:{{ parent_project_name }} isn't tagged as resource cleanup enabled {{ enabled_project_tag }}"
+  when: enabled_project_tag not in PARENT_PROJECT.projects[0].tags
+  ansible.builtin.debug:
+    msg: "Project isn't enabled for children cleanup by tag: {{ enabled_project_tag }}"
+
+- name: Resource cleanup enabled, tag {{ enabled_project_tag }} present in {{ domain }}/{{ parent_project_name }} tags"
+  when: enabled_project_tag in PARENT_PROJECT.projects[0].tags
+  block:
+
+  - name: "PARENT_PROJECT domain:{{ domain }} project-name:{{ parent_project_name }} includes cleanup period tags"
+    ansible.builtin.assert:
+      that:
+        - PARENT_PROJECT.projects[0].tags | select('search', '^{{ pre_shutoff_period_days_tag }}') | list | length > 0
+        - PARENT_PROJECT.projects[0].tags | select('search', '^{{ shutoff_period_days_tag }}') | list | length > 0
+        - PARENT_PROJECT.projects[0].tags | select('search', '^{{ cleanup_period_days_tag }}') | list | length > 0
+
+  - name: "Extract epoch timestamps from period tags of PARENT_PROJECT domain:{{ domain }} project-name:{{ parent_project_name }}"
+    ansible.builtin.set_fact:
+      pre_shutoff_period: "{{ (PARENT_PROJECT.projects[0].tags | select('search', pre_shutoff_period_days_tag))[0].split('=')[1] | int * 24*60*60 }}"
+      shutoff_period: "{{ (PARENT_PROJECT.projects[0].tags | select('search', shutoff_period_days_tag))[0].split('=')[1] | int * 24*60*60 }}"
+      cleanup_period: "{{ (PARENT_PROJECT.projects[0].tags | select('search', cleanup_period_days_tag))[0].split('=')[1] | int * 24*60*60 }}"
+
+  - name: "Debug: epoch period timestamps of PARENT_PROJECT domain:{{ domain }} project-name:{{ parent_project_name }}"
+    ansible.builtin.debug:
+      msg: "{{ item.msg}}: {{ item.value }}"
+    loop:
+      - { value: "{{ pre_shutoff_period }}", msg: "PARENT_PROJECT domain:{{ domain }} project-name:{{ parent_project_name }} - pre-shutoff period seconds" }
+      - { value: "{{ shutoff_period }}"    , msg: "PARENT_PROJECT domain:{{ domain }} project-name:{{ parent_project_name }} - shutoff period seconds" }
+      - { value: "{{ cleanup_period }}"    , msg: "PARENT_PROJECT domain:{{ domain }} project-name:{{ parent_project_name }} - cleanup period seconds" }
+
+  - name: Fetch PARENT_PROJECT children
+    openstack.cloud.project_info:
+      filters:
+        parent_id: "{{ PARENT_PROJECT.projects[0].id }}"
+    register: CHILD_PROJECTS
+
+  - name: "Debug: CHILD_PROJECTS"
+    ansible.builtin.debug:
+      var: CHILD_PROJECTS
+
+  - name: Cleanup CHILD_PROJECTS of PARENT_PROJECT
+    include_tasks: child_main.yml
+    loop: "{{ CHILD_PROJECTS.projects }}"
+    loop_control:
+      loop_var: project
