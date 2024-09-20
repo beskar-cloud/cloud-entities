@@ -9,7 +9,10 @@ project:
   tags:
   - egi                                              # internal cloud statistics tag
   - caso                                             # make sure accounting is enabled
-  - children-project-clean-up.enable=true            # project clean-up for children projects
+  - children-project-clean-up.enable=true            # project clean-up for children projects & timing
+  - children-project-clean-up.pre-shutoff-period-days=160
+  - children-project-clean-up.shutoff-period-days=180
+  - children-project-clean-up.cleanup-period-days=190
   - project_nested_quota_propagation.enable=true     # ostack quota (*) propagation to children projects
   - egi.AppDB.enable_project_nested_propagation=true # AppDB appliances propagation to children projects
 quota: # (*)
