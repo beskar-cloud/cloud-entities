@@ -1,0 +1,12 @@
+metadata:
+  contacts:
+  - cloud@metacentrum.cz
+project:
+  name: personal-projects
+  domain: einfra_cz
+  description: "Umbrella project for all personal projects in einfra_cz domain"
+  enabled: true
+  tags:
+  - cloud
+quota: {}
+acls: {}

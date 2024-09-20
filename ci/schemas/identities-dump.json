@@ -1,0 +1,40 @@
+{
+    "$id": "https://example.com/openstack-entities.project.schema.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+
+    "title": "AAI identities dump",
+    "type": "object",
+    "required": ["access", "instance"],
+    "properties": {
+        "access": {
+            "type": "array",
+            "description": "AAI identities.",
+            "items": {
+                "type": "object",
+                "required": ["additional_identifier", "identifier", "mail", "personal_project", "projects_access", "projects_managers", "name", "expiration"],
+                "patternProperties": {
+                    "^personal_project$": {
+                        "type": "boolean"
+                    },
+                    "^(identifier|mail)$": {
+                        "type": "string"
+                    },
+                    "^(additional_identifier|projects_access|projects_managers)$": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "^(name|expiration)$": {
+                        "type": ["string","null"]
+                    }
+                }
+            }
+        },
+        "instance": {
+            "type": "string",
+            "description": "AAI instance name.",
+            "pattern": "^einfra|muni$"
+        }
+    }
+}

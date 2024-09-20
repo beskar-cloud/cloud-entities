@@ -1,0 +1,111 @@
+- name: "Check if required variables are defined"
+  block:
+    - fail:
+        msg: "'obsolete_image_name' must be defined"
+      when: obsolete_image_name is undefined
+
+    - fail:
+        msg: "'swap_image_name' must be defined"
+      when: swap_image_name is undefined
+
+- set_fact:
+    days_as_public: "{{ days_as_public | default(60) }}" 
+    days_as_community: "{{ days_as_community | default(365) }}" 
+
+- name: "Ensure obsolete image and swap image are both present"
+  block:
+  # Not performing look up by ID because uploaded swap image would
+  # require specified ID during upload or additional look up by its upload name. 
+  # Obsolete image look up is by name too to keep consistency within playbook. 
+  - name: "Check if obsolete image named {{ obsolete_image_name }} is present"
+    openstack.cloud.image_info:
+      image: "{{ obsolete_image_name  }}"
+      #admin_owner_id_filter is specified by image rotation
+      #for fetching correct official images
+      filters: "{{ admin_owner_id_filter | default({}) }}"
+    register: ostack_obsolete_image_result
+   
+  - name: "Check if image swap named {{ swap_image_name }} is present"
+    openstack.cloud.image_info:
+      image: "{{ swap_image_name }}"
+      #admin_owner_id_filter is specified by image rotation
+      #for fetching correct official images
+      filters: "{{ admin_owner_id_filter | default({}) }}"
+    register: ostack_swap_image_result
+    when: swap_image_name is defined
+
+  - fail:
+      msg: "Multiple images obsolete named {{ obsolete_image_name }} detected"
+    when: (ostack_obsolete_image_result.images | length > 1)
+
+  - fail:
+      msg: "Obsolete image is not present"
+    when: (ostack_obsolete_image_result.images | length == 0) or (ostack_obsolete_image_result.images[0].status == 'absent') 
+
+  # This check is only for names because OpenStack does not allow duplicate IDs
+  - fail:
+      msg: "Multiple images named {{ swap_image_name }} detected"
+    when: (ostack_swap_image_result.images | length > 1)
+
+  - fail:
+      msg: "Swap image is not present"
+    when: (ostack_swap_image_result.images | length == 0) or (ostack_swap_image_result.images[0].status == 'absent') 
+
+  # This check is safeguarg for detecting if obsolete and swap inages are the same reference image
+  - fail:
+      msg: "Obsolete and swap images are the same image"
+    when: ostack_obsolete_image_result.images[0].id == ostack_swap_image_result.images[0].id
+
+- set_fact:
+    timestamp_prefix: "{{ ostack_obsolete_image_result.images[0].get('created_at', ostack_obsolete_image_result.images[0].get('updated_at', '1970-01-01T00:00:00Z')) |  regex_search('([0-9]{4}-[0-9]{2}-[0-9]{2})') }}"
+
+- set_fact:
+    obsolete_image_target_name: "{{ ostack_obsolete_image_result.images[0].name }}-{{ timestamp_prefix }}"
+
+- set_fact:
+    fresh_image_target_name: "{{ ostack_obsolete_image_result.images[0].name }}"
+
+- shell: date +"%Y-%m-%d" -d "+{{ days_as_public }} days"
+  register: move_to_community_timestamp
+
+- shell: date +"%Y-%m-%d" -d "+{{ days_as_community }} days"
+  register: delete_timestamp
+
+- set_fact:
+    move_to_community_tag: "image-rotation/move-to-community-{{ move_to_community_timestamp.stdout_lines[0] }}"
+
+- set_fact:
+    delete_as_obsolete_tag: "image-rotation/delete-as-obsolete-{{ delete_timestamp.stdout_lines[0] }}"
+
+- name: "Ensure obsolete image is renamed"
+  openstack.cloud.image:
+    name: "{{ obsolete_image_target_name }}"
+    id: "{{ ostack_obsolete_image_result.images[0].id }}"
+    # Due to bug Ansible sets image visibility attribute
+    # to 'private' during updates. It must be explicitly
+    # specified original visibility to keep it same
+    visibility: "{{ ostack_obsolete_image_result.images[0].visibility }}"
+  # This section is performed twice to ensure 
+  # image is truly renamed.
+  with_sequence: start=0 end=2 stride=1
+
+- name: "Ensure obsolete image has required tags"
+  openstack.cloud.image:
+    # Name is required parameter
+    # This section adds tags only 
+    name: "{{ obsolete_image_target_name }}"
+    id: "{{ ostack_obsolete_image_result.images[0].id }}"
+    # Due to bug Ansible sets image visibility attribute
+    # to 'private' during updates. It must be explicitly
+    # specified original visibility to keep it same
+    visibility: "{{ ostack_obsolete_image_result.images[0].visibility }}"
+    tags: "{{ ostack_obsolete_image_result.images[0].tags + [move_to_community_tag, delete_as_obsolete_tag] }}"
+
+- name: "Ensure swap image is renamed"
+  openstack.cloud.image:
+    name: "{{ fresh_image_target_name }}"
+    id: "{{ ostack_swap_image_result.images[0].id }}"
+    # Due to bug Ansible sets image visibility attribute
+    # to 'private' during updates. It must be explicitly
+    # specified original visibility to keep it same
+    visibility: "{{ ostack_swap_image_result.images[0].visibility }}"

@@ -1,0 +1,47 @@
+- name: "Project {{ project.name }} (id:{{ project.id }}) is tagged as resource cleanup disabled ({{ disabled_project_tag }})"
+  when: disabled_project_tag in project.tags
+  ansible.builtin.debug:
+    msg: "Project {{ project.id }} disables cleanup from parent with tag: {{ disabled_project_tag }}."
+
+- name: "Project {{ project.name }} (id:{{ project.id }}) resource cleanup enabled"
+  when: disabled_project_tag not in project.tags
+  block:
+
+  - name: "Project {{ project.name }} (id:{{ project.id }}) is tagged with creation timestamp tag {{ creation_timestamp_tag }}"
+    when: project.tags | select('search', creation_timestamp_tag) | list | length > 0
+    block:
+
+      - name: "Extract creation timestamp from project {{ project.name }} (id:{{ project.id }}) tag {{ creation_timestamp_tag }}"
+        ansible.builtin.set_fact:
+          creation_timestamp: "{{ (project.tags | select('search', creation_timestamp_tag))[0].split('=')[1] }}"
+
+      - name: "Debug: creation timestamp of project {{ project.name }} (id:{{ project.id }}) and current epoch datetime"
+        ansible.builtin.debug:
+          msg: "{{ item.msg}}: {{ item.value }}"
+        loop:
+          - { value: "{{ creation_timestamp }}"     , msg: "Creation timestamp of project {{ project.name }} (id:{{ project.id }})" }
+          - { value: "{{ ansible_date_time.epoch }}", msg: "Current date time since epoch" }
+
+      - name: "Notify owner of project {{ project.name }} (id:{{ project.id }}) about upcoming shutoff and cleanup dates"
+        when: (pre_shutoff_notified_tag not in project.tags) and (creation_timestamp | int + pre_shutoff_period | int) < ansible_date_time.epoch | int
+        # TODO: Send notification email and tag.
+        ansible.builtin.debug:
+          msg: "TODO: Notify used and tag project with {{ pre_shutoff_notified_tag }}"
+
+      - name: "Project {{ project.name }} (id:{{ project.id }}) is not due for VMs shutoff"
+        when: (creation_timestamp | int + shutoff_period | int) > ansible_date_time.epoch | int
+        ansible.builtin.debug:
+          msg: "Project {{ project.name }} (id:{{ project.id }}) is not due for VMs shutoff."
+
+      - name: "Project {{ project.name }} (id:{{ project.id }}) is due for VMs shutoff"
+        when: (creation_timestamp | int + shutoff_period | int) < ansible_date_time.epoch | int
+        block:
+          - name: "Project {{ project.name }} (id:{{ project.id }}) VMs shutoff and possibly cleanup"
+            include_tasks: child_cleanup.yml
+
+  - name: "Tag project {{ project.name }} (id:{{ project.id }}) with creation timestamp tag {{ creation_timestamp_tag }}"
+    when: project.tags | select('search', creation_timestamp_tag) | list | length == 0
+    openstack.cloud.project:
+      name: "{{ project.id }}"
+      properties:
+        tags: "{{ project.tags }} + [ '{{ creation_timestamp_tag }}={{ ansible_date_time.epoch }}' ]"

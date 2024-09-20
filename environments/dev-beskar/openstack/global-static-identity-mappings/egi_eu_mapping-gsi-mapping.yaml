@@ -1,0 +1,65 @@
+id: egi_eu_mapping
+rules:
+  - local:
+    - user:
+        name: '{0}'
+        email: '{1}'
+      group:
+        name: egi_eu_federated_users
+        domain:
+          id: 55b6d02daa82456792b697ed9b80ec49
+    remote:
+    - type: OIDC-sub
+    - type: OIDC-email
+  # personal projects granted by TODO
+  - local: &local-a-personal-project
+    - projects:
+      - name: '{0}'
+        description: "Personal project for {0} with contact address {1}"
+        parent:
+          name: personal-projects
+        roles: &roles-member-reader-creator-lbmember
+        - name: member
+        - name: reader
+        - name: creator
+        - name: load-balancer_member
+    remote:
+    - type: OIDC-sub                   # reference as {0}
+    - type: OIDC-email                 # reference as {1}
+    - type: OIDC-eduperson_entitlement # reference as {2}
+      any_one_of:
+      # inspected eduperson_entitlements https://aai-demo.egi.eu/auth/realms/egi/protocol/openid-connect/userinfo
+      - urn:mace:egi.eu:goc.egi.eu:105599G0:CESNET-MCC:Site+Administrator@egi.eu
+  # personal projects granted by listed admins (OIDC-sub)
+  # Note: adding description in local section causes keystone to crash (2023-10-10)
+  - local: *local-a-personal-project
+    remote:
+    - type: OIDC-sub                   # reference as {0}
+    - type: OIDC-email                 # reference as {1}
+    - type: OIDC-sub                   # not referred see Note https://docs.openstack.org/keystone/yoga/admin/federation/mapping_combinations.html#mapping-conditions
+      any_one_of:
+      - &u_freznicek 6**************************************************************5@egi.eu
+      - &u_jsmrcka   1**************************************************************8@egi.eu
+      - &u_jjezek    c**************************************************************b@egi.eu
+      - &u_jnemec    2**************************************************************4@egi.eu
+
+  # personal-projects umbrella project granted to group of people
+  # explicit way, hard to maintain
+  # TODO: jinja2 template to be possible here
+  - local:
+    - projects:
+      - name: 'personal-projects'
+        roles: *roles-member-reader-creator-lbmember
+      - name: '6**************************************************************5@egi.eu'
+        roles: *roles-member-reader-creator-lbmember
+      - name: '1**************************************************************8@egi.eu'
+        roles: *roles-member-reader-creator-lbmember
+      - name: 'c**************************************************************b@egi.eu'
+        roles: *roles-member-reader-creator-lbmember
+      - name: '2**************************************************************4@egi.eu'
+        roles: *roles-member-reader-creator-lbmember
+    remote:
+    - type: OIDC-sub
+      any_one_of:
+      - *u_freznicek
+

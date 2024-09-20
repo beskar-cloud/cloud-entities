@@ -1,0 +1,12 @@
+metadata:
+  contacts:
+  - cloud@metacentrum.cz
+project:
+  name: group-projects
+  domain: egi_eu
+  description: "Umbrella project for all group projects in egi_eu domain"
+  enabled: true
+  tags:
+  - cloud
+quota: {}
+acls: {}

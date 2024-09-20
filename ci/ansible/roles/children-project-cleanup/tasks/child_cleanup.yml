@@ -1,0 +1,46 @@
+- name: "Gather information about VMs of project {{ project.name }} (id:{{ project.id }})"
+  openstack.cloud.server_info:
+    filters:
+      project_id: "{{ project.id }}"
+    all_projects: true
+  register: project_servers
+
+- name: "Debug: project {{ project.name }} (id:{{ project.id }}) VMs"
+  ansible.builtin.debug:
+    var: project_servers
+
+- name: "Notify owner of project {{ project.name }} (id:{{ project.id }}) about shutoff and upcoming cleanup date"
+  when: shutoff_notified_tag not in project.tags
+  # TODO: Send notification email and tag.
+  ansible.builtin.debug:
+    msg: "TODO: Notify user and tag project with {{ shutoff_notified_tag }}"
+
+- name: "Shutoff VMs of project {{ project.name }} (id:{{ project.id }})"
+  openstack.cloud.server_action:
+    server: "{{ item.id }}"
+    action: stop
+    all_projects: true
+  loop: "{{ project_servers.servers }}"
+
+- name: "Project {{ project.name }} (id:{{ project.id }}) is not due for resource cleanup"
+  when: (creation_timestamp | int + cleanup_period | int) > ansible_date_time.epoch | int
+  ansible.builtin.debug:
+    msg: "Project {{ project.name }} (id:{{ project.id }}) is not due for resource cleanup."
+
+- name: "Project {{ project.name }} (id:{{ project.id }}) resource cleanup"
+  when: (creation_timestamp | int + cleanup_period | int ) < ansible_date_time.epoch | int
+  block:
+
+    - name: "Notify owner of project {{ project.name }} (id:{{ project.id }}) about project resource cleanup"
+      when: cleanup_notified_tag not in project.tags
+      # TODO: Send notification email and tag.
+      ansible.builtin.debug:
+        msg: "TODO: Notify user and tag project with {{ cleanup_notified_tag }}"
+
+    - name: "Delete VMs of project {{ project.name }} (id:{{ project.id }}) with volumes and IPs"
+      openstack.cloud.server:
+        name: "{{ item.id }}"
+        state: absent
+        terminate_volume: true
+        delete_ips: true
+      loop: "{{ project_servers.servers }}"

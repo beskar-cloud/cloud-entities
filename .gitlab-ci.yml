@@ -1,0 +1,10 @@
+include:
+- project: beskar-cloud/cloud-entities
+  file: /ci/cloud-entity-pipeline.yml
+
+variables:
+  OSTACK_TF_BASEDIR: "environments/dev-beskar/openstack"
+  GRAFANA_TF_BASEDIR: "environments/dev-beskar/grafana"
+  ENVIRONMENT_NAME: "dev-beskar"
+  OSTACK_IMAGES_MANAGEMENT: "true"
+  OSTACK_CHILDREN_PROJECT_CLEANUP: "false" # disable ostack nested project clean-up

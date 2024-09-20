@@ -1,0 +1,45 @@
+- name: Gather information about umbrella project above group projects
+  openstack.cloud.project_info:
+    name: "{{ group_projects_umbrella_project_name }}"
+    domain: "{{ domain_name }}"
+  register: GROUP_PROJECTS_PROJECT
+
+- name: Single umbrella project above group projects was detected
+  ansible.builtin.assert:
+    that:
+      - GROUP_PROJECTS_PROJECT.projects | length == 1
+
+- name: Debug report GROUP_PROJECTS_PROJECT variable
+  ansible.builtin.debug:
+    var: GROUP_PROJECTS_PROJECT
+    verbosity: 2
+
+- name: Gather information about a previously created external network by name
+  openstack.cloud.networks_info:
+    name: "{{ external_network_name }}"
+  register: EXTERNAL_NETWORK
+
+- name: Single external network was detected
+  ansible.builtin.assert:
+    that:
+      - EXTERNAL_NETWORK.networks | length == 1
+
+- name: Debug report EXTERNAL_NETWORK variable
+  ansible.builtin.debug:
+    var: EXTERNAL_NETWORK
+    verbosity: 2
+
+- name: "Fetch all OpenStack group projects"
+  openstack.cloud.project_info:
+    filters:
+      parent_id: "{{ GROUP_PROJECTS_PROJECT.projects[0].id  }}"
+  register: GROUP_PROJECT_LIST
+
+- name: Debug report GROUP_PROJECT_LIST variable
+  ansible.builtin.debug:
+    var: GROUP_PROJECT_LIST
+    verbosity: 2
+
+- name: "Add default networking objects (network, subnet, router) to group projects, where don't exist"
+  include_tasks: "create_networking.yml"
+  loop: "{{ GROUP_PROJECT_LIST.projects }}"

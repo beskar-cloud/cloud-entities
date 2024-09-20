@@ -1,0 +1,17 @@
+parent_project_name: personal-projects
+domain: egi_eu
+
+# Used with the parent project
+enabled_project_tag: children-project-clean-up.enable=true
+# TAG_NAME=DAYS, =DAYS is omitted here, but expected in the actual tag
+pre_shutoff_period_days_tag: children-project-clean-up.pre-shutoff-period-days
+shutoff_period_days_tag: children-project-clean-up.shutoff-period-days
+cleanup_period_days_tag: children-project-clean-up.cleanup-period-days
+
+# Used with child projects
+disabled_project_tag: children-project-clean-up.enable=false # Optional
+# Automatically managed by Ansible
+creation_timestamp_tag: children-project-clean-up.first-seen
+pre_shutoff_notified_tag: children-project-clean-up.pre-shutoff-notified=true
+shutoff_notified_tag: children-project-clean-up.shutoff-notified=true
+cleanup_notified_tag: children-project-clean-up.cleanup-notified=true

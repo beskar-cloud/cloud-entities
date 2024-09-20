@@ -1,0 +1,149 @@
+{% if not (("enabled" not in project) and ("removal-date" in metadata and current_date>metadata["removal-date"])) %}
+# OpenStack project {{ project["domain"] }}/{{ project["name"] }} state terraform declaration
+
+{%- set project_name = project["name"] | replace("-", "_") | replace(".", "_") -%}
+{%- set domain_name = project["domain"] | replace("-", "_") | replace(".", "_") -%}
+{% set domain_project_name = domain_name + "_" + project_name %}
+
+resource "openstack_identity_project_v3" "{{ domain_project_name }}" {
+
+  domain_id     = "${openstack_identity_project_v3.{{ domain_name }}.id}"
+
+  # 'enabled' has absolute priority, 'disable-date' will be used only when 'enabled' is ommited from project configuration
+  {% if "enabled" in project %}
+  enabled = {{ project["enabled"] | string | lower }}
+  {% elif "disable-date" in metadata and current_date<=metadata["disable-date"] %}
+  enabled = true
+  {% elif "disable-date" in metadata and current_date>metadata["disable-date"] %}
+  enabled = false
+  {% endif %}
+
+  {%- set project_params_quoted =["name", "description", "tags", "parent_id"] -%}
+  {% if "parent" in project %}
+    {%- set project_params_quoted =["name", "description", "tags"] -%}
+  parent_id = "${openstack_identity_project_v3.{{ domain_name }}_{{ project["parent"] | replace("-", "_") | replace(".", "_") }}.id}"
+  {% endif %}
+  
+  {% for i_param in project_params_quoted %}
+    {% if i_param in project %}
+  {{ i_param }} = {{ project[i_param] | tojson }}
+    {% endif %}
+  {% endfor %}
+}
+
+{%- set lb_quota_v2_params_present = namespace(found=false) -%}
+{%- set lb_quota_v2_params =["loadbalancer", "listener", "member", "pool", "health_monitor", "l7_policy", "l7_rule"] -%}
+
+{% for i_param in lb_quota_v2_params %}
+  {%- if i_param in quota -%}
+    {%- set lb_quota_v2_params_present.found = true -%}
+  {%- endif -%}
+{% endfor %}
+
+
+# OpenStack project related quota[s] declaration
+{% if (quota) and (lb_quota_v2_params_present.found) -%}
+  resource "openstack_lb_quota_v2" "{{ domain_project_name }}_lb_quota_1" {
+    project_id     = "${openstack_identity_project_v3.{{ domain_project_name }}.id}"
+    
+    {% for i_param in lb_quota_v2_params %}
+      {% if i_param in quota -%}
+        {{ i_param }} = {{ quota[i_param] }}
+      {% endif -%}
+    {% endfor %}  
+    
+  }
+{% endif -%}
+
+{%- set blockstorage_quotaset_v3_params_present = namespace(found=false) -%}
+{%- set blockstorage_quotaset_v3_params = ["volumes", "snapshots", "gigabytes", "per_volume_gigabytes", "backups", "backup_gigabytes", "groups"] -%}
+{%- set blockstorage_quotaset_v3_defaults = ({"volumes": 10, "snapshots": 10, "gigabytes": 1000, "per_volume_gigabytes": -1, "backups": 10, "backup_gigabytes": 1000, "groups": 10}) -%}
+
+{% for i_param in blockstorage_quotaset_v3_params -%}
+  {%- if i_param in quota -%}
+    {%- set blockstorage_quotaset_v3_params_present.found = true -%}
+  {%- endif -%}
+{% endfor -%}
+
+
+{% if (quota) and (blockstorage_quotaset_v3_params_present.found) -%}
+resource "openstack_blockstorage_quotaset_v3" "{{ domain_project_name }}_blockstorage_quota_1" {
+  project_id     = "${openstack_identity_project_v3.{{ domain_project_name }}.id}"
+  
+  {% for i_param in blockstorage_quotaset_v3_params %}
+    {% if i_param in quota -%}
+      {{ i_param }} = {{ quota[i_param] }}
+    {% else %}
+      {{ i_param }} = {{ blockstorage_quotaset_v3_defaults[i_param] }}
+    {% endif -%}
+  {% endfor %}  
+  
+  {%- if "volume_type_quota" in quota -%}
+  volume_type_quota = {
+  {%- for key, value in quota["volume_type_quota"].items() -%}
+    {{ key }} = {{ value }}
+  {% endfor %}  
+  }
+  {% endif -%}
+
+}
+{% endif -%}
+
+{%- set compute_quotaset_v2_params_present = namespace(found=false) -%}
+{%- set compute_quotaset_v2_params = ["key_pairs", "ram", "cores", "instances", "server_groups", "server_group_members"] -%}
+
+{% for i_param in compute_quotaset_v2_params -%}
+  {%- if i_param in quota -%}
+    {%- set compute_quotaset_v2_params_present.found = true -%}
+  {%- endif -%}
+{% endfor -%}
+
+{% if (quota) and (compute_quotaset_v2_params_present.found) -%}
+resource "openstack_compute_quotaset_v2" "{{ domain_project_name }}_compute_quota_1" {
+  project_id     = "${openstack_identity_project_v3.{{ domain_project_name }}.id}"
+  
+  {% for i_param in compute_quotaset_v2_params %}
+    {% if i_param in quota -%}
+      {{ i_param }} = {{ quota[i_param] }}
+    {% endif -%}
+  {% endfor %}  
+}
+{% endif -%}
+
+
+{%- set networking_quota_v2_params_present = namespace(found=false) -%}
+{%- set networking_quota_v2_params = ["floatingip", "network", "port", "rbac_policy", "router", "security_group", "security_group_rule", "subnet", "subnetpool"] -%}
+
+{%- for i_param in networking_quota_v2_params -%}
+  {%- if i_param in quota -%}
+    {%- set networking_quota_v2_params_present.found = true -%}
+  {%- endif -%}
+{%- endfor -%}
+
+
+{% if (quota) and (networking_quota_v2_params_present.found) -%}
+resource "openstack_networking_quota_v2" "{{ domain_project_name }}_networking_quota_1" {
+  project_id     = "${openstack_identity_project_v3.{{ domain_project_name }}.id}"
+  
+  {% for i_param in networking_quota_v2_params %}
+    {% if i_param in quota -%}
+      {{ i_param }} = {{ quota[i_param] }}
+    {% endif -%}
+  {% endfor %}  
+}
+{% endif -%}
+
+# non-public flavors access from the project
+{% if "flavors" in acls %}
+  {% if acls["flavors"] %}
+    {% for i_flavor in acls["flavors"] %}
+      {%- set i_flavor_undescored = i_flavor | replace("-", "_") | replace(".", "_") -%}
+resource "openstack_compute_flavor_access_v2" "{{ domain_project_name }}_{{ i_flavor_undescored }}" {
+  tenant_id = "${openstack_identity_project_v3.{{ domain_project_name }}.id}"
+  flavor_id = "${openstack_compute_flavor_v2.{{ i_flavor_undescored }}.id}"
+}
+    {% endfor %}
+  {% endif %}
+{% endif %}
+
+{% endif %}

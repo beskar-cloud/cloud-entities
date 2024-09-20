@@ -1,0 +1,34 @@
+- name: "Query for ssh security group (project: {{ item.name }} ({{ item.id }}))"
+  openstack.cloud.security_group_info:
+    name: ssh
+    project_id: "{{ item.id }}"
+  register: SSH_SECGROUP
+
+- name: "Create ssh security group as it is missing (project: {{ item.name }} ({{ item.id }}))"
+  openstack.cloud.security_group:
+    state: present
+    name: ssh
+    description: OpenStack security group for SSH access
+    project: "{{ item.id }}"
+    security_group_rules:
+      - ether_type: IPv6
+        direction: egress
+      - ether_type: IPv4
+        direction: egress
+      - ether_type: IPv6
+        direction: ingress
+        remote_group: ssh
+      - ether_type: IPv4
+        direction: ingress
+        remote_group: ssh
+      - ether_type: IPv6
+        direction: ingress
+        port_range_min: 22
+        port_range_max: 22
+        protocol: tcp
+      - ether_type: IPv4
+        direction: ingress
+        port_range_min: 22
+        port_range_max: 22
+        protocol: tcp
+  when: SSH_SECGROUP is defined and (SSH_SECGROUP.security_groups|length==0)

@@ -1,0 +1,24 @@
+name: debian-9-x86_64
+image_source_url: https://cdimage.debian.org/cdimage/openstack/9.13.42-20220706/debian-9.13.42-20220706-openstack-amd64.qcow2
+image_source_checksum_url: https://cdimage.debian.org/cdimage/openstack/9.13.42-20220706/SHA256SUMS
+image_source_checksum_type: sha256
+container_format: bare
+disk_format: raw
+visibility: public
+min_disk: 2
+min_ram: 1024
+properties:
+  min_disk_gb:         "2"
+  min_ram_mb:          "1024"
+  requires_rdp:        "False"
+  requires_ssh:        "True"
+  os_type:             linux
+  os_distro:           debian
+  os_flavor:           Debian
+  os_version:          "9.13.42"
+  default_user:        debian
+  hw_scsi_model:       virtio-scsi
+  hw_disk_bus:         scsi
+  hw_rng_model:        virtio
+  hw_qemu_guest_agent: "yes"
+  os_require_quiesce:  "yes"

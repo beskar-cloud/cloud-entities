@@ -1,0 +1,23 @@
+# resources
+domain_name: einfra_cz
+## to be gathered (resolve name -> id)
+external_network_name: external-ipv4-general-public
+group_projects_umbrella_project_name: group-projects
+
+## to be created
+network: "group-project-network"
+subnet: "group-project-network-subnet"
+cidr: "192.168.0.0/24"
+router: "group-project-router"
+
+## project tag
+project_tag_name: "default-group-project-networking=false"
+
+# creation of the networking for group project may be controlled from 
+# cloud-entities project-quota-acls objects key .metadata.ci.group-project-networking-creation-enable = true (default) / false
+# group-project networking enable structure is following:
+# (skip group networking creation for project einfra_cz/admin)
+#
+# group-project-networking-creation-enable:
+#   einfra_cz:
+#     admin: false

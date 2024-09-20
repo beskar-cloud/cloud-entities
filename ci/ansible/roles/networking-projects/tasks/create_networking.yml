@@ -1,0 +1,37 @@
+- name: "Query for default network (project: {{ item.name }} ({{ item.id }}))"
+  openstack.cloud.networks_info:
+    name: "{{ network }}"
+  register: DEFAULT_NETWORK
+
+- name: "Create missing network, subnet and router (project: {{ item.name }} ({{ item.id }}))"
+  block:
+    - name: "Create network for project: {{ item.name }}"
+      openstack.cloud.network:
+        state: present
+        name: "{{ network }}"
+        project: "{{ item.id }}"
+      register: NETWORK
+
+    - name: "Create subnet for project: {{ item.name }}"
+      openstack.cloud.subnet:
+        state: present
+        name: "{{ subnet }}"
+        project: "{{ item.id }}"
+        network: "{{ NETWORK.id }}"
+        cidr: "{{ cidr }}"
+        dns_nameservers:
+          - 8.8.8.8
+          - 8.8.4.4
+        is_dhcp_enabled: true
+      register: SUBNET
+
+    - name: "Create router for project: {{ item.name }}"
+      openstack.cloud.router:
+        state: present
+        name: "{{ router }}"
+        project: "{{ item.id }}"
+        network: "{{ extnetwork }}"
+        interfaces:
+          - "{{ SUBNET.id }}"
+
+  when: DEFAULT_NETWORK is defined and (DEFAULT_NETWORK.networks|length==0)

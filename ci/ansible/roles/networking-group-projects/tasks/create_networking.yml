@@ -1,0 +1,59 @@
+- name: "Query for group project networks (project name:{{ item.name }}, id:{{ item.id }}, tags:{{ item.tags }})"
+  openstack.cloud.networks_info:
+    name: "{{ network }}"
+    filters:
+      project_id: "{{ item.id }}"
+  register: PROJECT_NETWORKS
+
+- name: "Debug report PROJECT_NETWORKS variable"
+  ansible.builtin.debug:
+    var: PROJECT_NETWORKS
+    verbosity: 2
+
+# preparation of networking_entities_state var with values of present or absent
+# based on project tag {{ project_tag_name }} presence
+- name: "Set expected networking entities state to present (default behavior)"
+  ansible.builtin.set_fact:
+    networking_entities_state: present
+
+- name: "Set expected networking entities state to absent when {{ project_tag_name }} tag is present"
+  ansible.builtin.set_fact:
+    networking_entities_state: absent
+  when: "project_tag_name in item.tags"
+
+- name: "Create missing network, subnet and router (project: {{ item.name }} ({{ item.id }}))"
+  block:
+    - name: "Create network for project: {{ item.name }}"
+      openstack.cloud.network:
+        state: "{{ networking_entities_state }}"
+        name: "{{ network }}"
+        project: "{{ item.id }}"
+      register: NETWORK
+
+    - name: "Create subnet for project: {{ item.name }}"
+      openstack.cloud.subnet:
+        state: "{{ networking_entities_state }}"
+        name: "{{ subnet }}"
+        project: "{{ item.id }}"
+        network: "{{ NETWORK.id }}"
+        cidr: "{{ cidr }}"
+        dns_nameservers:
+          - 8.8.8.8
+          - 8.8.4.4
+        is_dhcp_enabled: true
+      register: SUBNET
+
+    - name: "Create router for project: {{ item.name }}"
+      openstack.cloud.router:
+        state: "{{ networking_entities_state }}"
+        name: "{{ router }}"
+        project: "{{ item.id }}"
+        network: "{{ EXTERNAL_NETWORK.networks[0].id }}"
+        interfaces:
+          - "{{ SUBNET.id }}"
+
+  # block conditionals
+  # option A] do not delete network entities when project tag {{ project_tag_name }} is present
+  when: "PROJECT_NETWORKS is defined and (PROJECT_NETWORKS.networks|length==0) and project_tag_name not in item.tags"
+  # option B] do delete network entities when project tag {{ project_tag_name }} is present
+  #when: "PROJECT_NETWORKS is defined and (PROJECT_NETWORKS.networks|length==0)"

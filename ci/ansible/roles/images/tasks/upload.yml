@@ -1,0 +1,124 @@
+- name: "Check input required variables"
+  block:
+  - fail:
+      msg: "'image_declaration_path' or 'image_declaration_content' variables must be defined"
+    when: image_declaration_path is undefined and image_declaration_content is undefined
+  
+  - fail:
+      msg: "'image_declaration_path' and 'image_declaration_content' variables can't be both defined at the same time"
+    when: image_declaration_path is defined and image_declaration_content is defined
+
+- name: "Read and/or save image declaration content"
+  block:
+
+  - set_fact:
+      upload_image_declaration: "{{ image_declaration_content }}"
+    when: image_declaration_content is defined
+
+  - set_fact:
+      upload_image_declaration: "{{ lookup('file', image_declaration_path | realpath) | from_yaml }}"
+    when: image_declaration_path is defined
+  
+  - set_fact:
+      ostack_register_image_name: "{{ upload_image_declaration.name | default(ostack_register_image_name) }}"
+
+- name: "Gather facts about {{ ostack_register_image_name }} from OpenStack"
+  openstack.cloud.image_info:
+    image: "{{ ostack_register_image_name }}"
+    filters: "{{ admin_owner_id_filter | default({}) }}"
+  register: ostack_image_result
+
+- name: "Check if image named {{ ostack_register_image_name }} is not already present in OpenStack"
+  block:
+
+  - fail:
+      msg: "Multiple images named {{ ostack_register_image_name }} found"
+    when: ostack_image_result.images | length > 1
+
+  - fail:
+      msg: "Image named {{ ostack_register_image_name }} is already present in OpenStack. 'image_upload_rewrite_enable=true' variable must be specified to enable image rewrite"
+    when: 
+    - ostack_image_result.images | length == 1
+    - image_upload_rewrite_enable is undefined or image_upload_rewrite_enable != "true"
+
+- name: "Remove local image files (if they exist)"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+  - "/tmp/{{ ostack_register_image_name }}.original"
+  - "/tmp/{{ ostack_register_image_name }}.converted"
+
+- name: "Image {{ ostack_register_image_name }} from {{ upload_image_declaration.image_source_url }} with checksum_hash is stored locally"
+  vars:
+    combined_checksum_format: "{{ upload_image_declaration.image_source_checksum_type }}:{{ upload_image_declaration.checksum_hash }}"
+  get_url:
+    url: "{{ upload_image_declaration.image_source_url }}"
+    dest: "/tmp/{{ ostack_register_image_name }}"
+    mode: 0600
+    checksum: "{{ combined_checksum_format }}"
+  when: upload_image_declaration.checksum_hash is defined
+
+- name: "Image {{ ostack_register_image_name }} from {{ upload_image_declaration.image_source_url }} with checksum url {{ upload_image_declaration.image_source_checksum_url }} is stored locally"
+  when: upload_image_declaration.image_source_checksum_url is defined
+  block:
+
+  - name: "Get checksum file from url {{ upload_image_declaration.image_source_checksum_url }}"
+    get_url:
+      url: "{{ upload_image_declaration.image_source_checksum_url }}"
+      dest: "/tmp/{{ ostack_register_image_name }}.checksum"
+      force: true
+
+  - name: "Extract checksum from {{ upload_image_declaration.image_source_checksum_url }} file"
+    ansible.builtin.script: ../files/checksum_extract.sh {{ upload_image_declaration.image_source_url }} /tmp/{{ ostack_register_image_name }}.checksum
+    register: extracted_checksum_cmd_output
+
+  - name: "Print {{ upload_image_declaration.image_source_checksum_url }} extracted checksum for debug"
+    ansible.builtin.debug:
+      msg: "{{ extracted_checksum_cmd_output.stdout }}"
+
+  - name: "Download image {{ upload_image_declaration.image_source_url }}"
+    when: extracted_checksum_cmd_output.stdout != ""
+    vars:
+      combined_checksum_format: "{{ upload_image_declaration.image_source_checksum_type }}:{{ extracted_checksum_cmd_output.stdout }}"
+    get_url:
+      url: "{{ upload_image_declaration.image_source_url }}"
+      dest: "/tmp/{{ ostack_register_image_name }}.original"
+      mode: 0600
+      checksum: "{{ combined_checksum_format }}"
+
+# test whether download is successfull
+
+- name: "Calculate SHA256 checksum of pre-converted image file"
+  stat:
+      path: "/tmp/{{ ostack_register_image_name }}.original"
+      checksum_algorithm: sha256
+  register: pre_upload_sha256sum_stat
+
+- name: "Define pre-upload checksum property from {{ upload_image_declaration.image_source_url }} (to be saved as {{ ostack_register_image_name }}) image"
+  set_fact:
+    pre_upload_checksum_property: { "pre_upload_sha256sum": "{{ pre_upload_sha256sum_stat['stat']['checksum'] }}" }
+
+- name: "Image {{ ostack_register_image_name }} is in {{ upload_image_declaration.disk_format }} disk format"
+  shell: qemu-img convert "/tmp/{{ ostack_register_image_name }}.original" -O "{{ upload_image_declaration.disk_format }}" "/tmp/{{ ostack_register_image_name }}.converted"
+
+- name: "Image {{ ostack_register_image_name }} is present in OpenStack"
+  openstack.cloud.image:
+    state: present
+    name: "{{ ostack_register_image_name }}"
+    container_format: "{{ upload_image_declaration.container_format }}"
+    disk_format: "{{ upload_image_declaration.disk_format }}"
+    filename: "/tmp/{{ ostack_register_image_name }}.converted"
+    visibility: "{{ upload_image_declaration.visibility | default('public') }}"
+    min_disk: "{{ upload_image_declaration.min_disk }}"
+    min_ram: "{{ upload_image_declaration.min_ram }}"
+    properties: "{{ pre_upload_checksum_property | ansible.builtin.combine(upload_image_declaration.properties) }}"
+
+- name: "Downloaded / generated files are removed"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+  - "/tmp/{{ ostack_register_image_name }}.original"
+  - "/tmp/{{ ostack_register_image_name }}.converted"
+  - "/tmp/{{ ostack_register_image_name }}.checksum"

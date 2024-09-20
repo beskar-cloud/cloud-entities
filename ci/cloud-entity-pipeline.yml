@@ -1,0 +1,128 @@
+# cloud-entities CI pipeline template
+# In order to reuse this pipeline you have to:
+# * override variables/ENVIRONMENT_NAME,OSTACK_TF_BASEDIR,GRAFANA_TF_BASEDIR
+# * define CI protected variable COMMON_CLOUD_ENTITIES_PULL_TOKEN (token for pulling this repo)
+# * define CI protected file variable OSTACK_ADMIN_RC_FILE (openstack credentials in openrc form)
+
+
+stages:
+  - test
+  - deploy-sync-objs-tf
+  - deploy-conditional-objs-ans
+
+# common part
+# ---------------------------------------------------------------------------
+image: registry.gitlab.ics.muni.cz:443/cloud/g2/common-cloud-entities:v1.1.0
+
+variables:
+  TF_WORKDIR: "terraform-workload"
+  OSTACK_TF_BASEDIR: "" # pls override
+  GRAFANA_TF_BASEDIR: "" # pls override
+  ENVIRONMENT_NAME: "" # pls override
+  OSTACK_IMAGES_MANAGEMENT: "false"
+
+before_script:
+  - git clone https://gitlab-ci-token:${COMMON_CLOUD_ENTITIES_PULL_TOKEN}@gitlab.ics.muni.cz/cloud/g2/common-cloud-entities.git
+  - common-cloud-entities/ci/directory-merger.sh ci common-cloud-entities/ci ci
+  - export REPO_ROOT_DIR=$(pwd)
+  - export TF_VAR_shell_ostack_mapping_script_dir=$(pwd)/ci/terraform/providers/shell/ostack_mapping
+  - dpkg -l | sort > pkgs.apt.log
+  - python3 -m pip list > pkgs.pip.log
+  - if [ -s "${OSTACK_ADMIN_RC_FILE}" ]; then source ${OSTACK_ADMIN_RC_FILE}; openstack version show -fcsv | grep identity; fi
+
+after_script:
+  - rm -rf terraform-workload/.terraform/providers
+
+.common-artifacts: &common-artifacts
+  artifacts:
+    expire_in: 14 days
+    when: always
+    name: ostack-entities-${CI_BUILD_NAME}-${CI_BUILD_REF_NAME}-data
+    paths:
+      - "*.log"
+      - environments/
+      - terraform-workload/
+
+# input manifest tests
+# ---------------------------------------------------------------------------
+ost-manifests-test:
+  <<: *common-artifacts
+  stage: test
+  variables:
+    WORKFLOW_STEPS_TEST: "init,version,validate,providers,graph,state-list-if-exists"
+    WORKFLOW_STEPS_VAR: "WORKFLOW_STEPS_TEST"
+  script: &deploy-workflow
+    - ci/src/input-to-terraform-generate.py --input-manifest-dir "${OSTACK_TF_BASEDIR}" --input-terraform-skeleton-dir ci/terraform --output-dir "${OSTACK_TF_BASEDIR}" --environment-name "${ENVIRONMENT_NAME}"
+    - ci/src/ostack-mappings-generate.sh ${OSTACK_TF_BASEDIR}{/projects-quotas-acls,/global-static-identity-mappings,/global-static-identity-mappings}
+    - if [ "${CI_COMMIT_BRANCH}" != "master" ]; then cat ci/terraform/overrides/main-local-backend.tf > ${OSTACK_TF_BASEDIR}/main.tf; fi
+    - rm -rf ${TF_WORKDIR}; mkdir -p ${TF_WORKDIR}; find "${OSTACK_TF_BASEDIR}" \( -name "*.tf" -o -name "*-mapping-rules.json" \) -exec cp "{}" ${TF_WORKDIR} \;
+    - if [ -n "${OSTACK_TF_ENV_VARS_FILE}" -a -s "${OSTACK_TF_ENV_VARS_FILE}" ]; then source ${OSTACK_TF_ENV_VARS_FILE}; fi
+    - ci/src/infra-deploy.sh ${TF_WORKDIR} "${!WORKFLOW_STEPS_VAR}" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/${ENVIRONMENT_NAME}" "${TERRAFORM_IMPORT_ARGS}"
+
+yaml-manifests-test:
+  stage: test
+  variables:
+    ENVIRONMENT: ${ENVIRONMENT_NAME}
+  script:
+    - python3 -m unittest discover -s ci/tests -p "*.py" -v
+
+# deploy jobs
+# ---------------------------------------------------------------------------
+ost-entities-deploy: &ost-entities-deploy
+  <<: *common-artifacts
+  stage: deploy-sync-objs-tf
+  resource_group: terraform-cloud-deploy
+  variables:
+    WORKFLOW_STEPS_VAR: "WORKFLOW_STEPS_DEPLOY"
+  script: *deploy-workflow
+  rules: &rules-only-master
+  - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
+
+ost-entities-deploy-manual:
+  <<: *ost-entities-deploy
+  variables:
+    WORKFLOW_STEPS_VAR: "WORKFLOW_STEPS_DEPLOY_MANUAL"
+  when: manual
+
+.ost-deploy-conditional-objs: &ost-deploy-conditional-objs
+  <<: *common-artifacts
+  stage: deploy-conditional-objs-ans
+  rules: *rules-only-master
+
+ost-all-prjs-secgroup-ssh:
+  <<: *ost-deploy-conditional-objs
+  resource_group: ansible-ostack-all-prjs-secgroup-ssh
+  script:
+    - ansible-playbook ci/ansible/secgroup-ssh.yml
+
+ost-group-prjs-networking-einfra_cz:
+  <<: *ost-deploy-conditional-objs
+  resource_group: ansible-ostack-group-prjs-networking-einfra_cz
+  script:
+    - ansible-playbook ci/ansible/networking-group-projects.yml
+
+ost-images-management:
+  <<: *ost-deploy-conditional-objs
+  resource_group: ansible-ostack-images-upload
+  variables:
+    ANSIBLE_NOCOWS: "1"
+    IMAGE_CHECKSUMS_URL: https://cloud.gitlab-pages.ics.muni.cz/g2/prod-brno-image-checksums/CHECKSUMS
+  script:
+    - ansible-playbook ci/ansible/images.yml -e task=rotate -e cloud_entities_image_folder=environments/${ENVIRONMENT_NAME}/openstack/images -e freshness_checksum_file_url=${IMAGE_CHECKSUMS_URL}
+  rules:
+  - if: $OSTACK_IMAGES_MANAGEMENT == "true" && $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
+
+ost-nested-quota-propagation:
+  <<: *ost-deploy-conditional-objs
+  script:
+    - ansible-playbook ci/ansible/nested-quota-propagation.yml
+  rules:
+  - if: $OSTACK_NESTED_QUOTA_PROPAGATION != "false"
+
+ost-children-project-cleanup:
+  <<: *ost-deploy-conditional-objs
+  resource_group: ansible-ostack-children-project-cleanup
+  script:
+    - ansible-playbook ci/ansible/children-project-cleanup.yml
+  rules:
+  - if: $OSTACK_CHILDREN_PROJECT_CLEANUP != "false"

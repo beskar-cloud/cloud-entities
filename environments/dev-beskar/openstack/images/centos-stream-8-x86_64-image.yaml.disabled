@@ -1,0 +1,24 @@
+name: centos-stream-8-x86_64
+image_source_url: https://cloud.centos.org/centos/8-stream/x86_64/images/CentOS-Stream-GenericCloud-8-latest.x86_64.qcow2
+image_source_checksum_url: https://cloud.centos.org/centos/8-stream/x86_64/images/CentOS-Stream-GenericCloud-8-latest.x86_64.qcow2.SHA256SUM
+image_source_checksum_type: sha256
+container_format: bare
+disk_format: raw
+visibility: public
+min_disk: 8
+min_ram: 1024
+properties:
+  min_disk_gb:         "8"
+  min_ram_mb:          "1024"
+  requires_rdp:        "False"
+  requires_ssh:        "True"
+  os_type:             linux
+  os_distro:           centos-stream
+  os_flavor:           CentosStream
+  os_version:          "8.6"
+  default_user:        centos
+  hw_scsi_model:       virtio-scsi
+  hw_disk_bus:         scsi
+  hw_rng_model:        virtio
+  hw_qemu_guest_agent: "yes"
+  os_require_quiesce:  "yes"

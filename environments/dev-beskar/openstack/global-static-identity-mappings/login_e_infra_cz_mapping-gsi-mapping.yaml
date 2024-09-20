@@ -1,0 +1,93 @@
+id: login_e_infra_cz_mapping
+rules:
+  - local:
+    - user:
+        name: '{0}'
+        email: '{1}'
+      group:
+        name: e_infra_cz_federated_users
+        domain:
+          id: 0b2320313906481688277bbe99304732
+    remote:
+    - type: OIDC-sub
+    - type: OIDC-email
+  # personal projects granted by res:individuals in eduperson_entitlement
+  - local: &local-a-personal-project
+    - projects:
+      - name: '{0}'
+        description: "Personal project for {0} with contact address {1}"
+        parent:
+          name: personal-projects
+        roles: &roles-member-reader-creator-lbmember
+        - name: member
+        - name: reader
+        - name: creator
+        - name: load-balancer_member
+    remote:
+    - type: OIDC-sub                   # reference as {0}
+    - type: OIDC-email                 # reference as {1}
+    - type: OIDC-eduperson_entitlement # reference as {2}
+      any_one_of:
+      - urn:geant:cesnet.cz:res:individuals#perun.cesnet.cz
+
+  # personal projects granted by listed admins (OIDC-sub)
+  # Note: adding description in local section causes keystone to crash (2023-10-10)
+  - local: *local-a-personal-project
+    remote:
+    - type: OIDC-sub                   # reference as {0}
+    - type: OIDC-email                 # reference as {1}
+    - type: OIDC-sub                   # not referred see Note https://docs.openstack.org/keystone/yoga/admin/federation/mapping_combinations.html#mapping-conditions
+      any_one_of:
+      - &u_freznicek  c**************************************6@einfra.cesnet.cz
+      - &u_jnemec     f**************************************4@einfra.cesnet.cz
+      - &u_jkrystof   5**************************************c@einfra.cesnet.cz
+      - &u_kmoravcova 5**************************************2@einfra.cesnet.cz
+      - &u_jjezek     e**************************************c@einfra.cesnet.cz
+      - &u_jsmrcka    6**************************************6@einfra.cesnet.cz
+      - &u_rpolasek   c**************************************4@einfra.cesnet.cz
+  # admin projects granted by res:admin in eduperson_entitlement
+  - local: &local-admin-projects
+    - projects:
+      - name: admin
+        roles:
+        - name: admin
+        - name: member
+        - name: creator
+        - name: reader
+        - name: image_uploader
+        - name: heat_stack_user
+        - name: load-balancer_global_observer
+        - name: load-balancer_quota_admin
+        - name: load-balancer_admin
+        - name: load-balancer_member
+        - name: load-balancer_observer
+      - name: ostack-demo
+        roles: &roles-member-reader-creator-lbmember-iu-hsu
+        - name: member
+        - name: reader
+        - name: creator
+        - name: load-balancer_member
+        - name: image_uploader
+        - name: heat_stack_user
+      - name: meta-cloud-training
+        roles: *roles-member-reader-creator-lbmember-iu-hsu
+    remote:
+    - type: OIDC-sub
+    - type: OIDC-email
+    - type: OIDC-eduperson_entitlement
+      any_one_of:
+      - urn:geant:cesnet.cz:res:admin#perun.cesnet.cz
+
+  # admin projects granted by listed admins (OIDC-sub)
+  - local: *local-admin-projects
+    remote:
+    - type: OIDC-sub
+      any_one_of: &oidc-sub-admins
+      - *u_freznicek
+      - *u_jnemec
+      - *u_jkrystof
+      - *u_kmoravcova
+      - *u_jjezek
+      - *u_rpolasek
+      - *u_jsmrcka
+    - type: OIDC-email

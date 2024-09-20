@@ -1,0 +1,33 @@
+- name: "Project {{ project.name }} (id:{{ project.id }}) is tagged as quota propagation disabled ({{ disabled_project_tag }})"
+  when: disabled_project_tag in project.tags
+  ansible.builtin.debug:
+    msg: "Project {{ project.id }} disables quota propagation with tag: {{ disabled_project_tag }}."
+
+- name: "Project {{ project.name }} quota propagation enabled"
+  when: disabled_project_tag not in project.tags
+  block:
+
+  - name: "Propagate PARENT_PROJECT {{ PARENT_PROJECT.projects[0].name }} (id:{{ PARENT_PROJECT.projects[0].id }}) quota to child project {{ project.name }} (id:{{ project.id }})"
+    openstack.cloud.quota:
+      name: "{{ project.id }}"
+      cores: "{{ PARENT_PROJECT_QUOTA.openstack_quotas.compute.cores }}"
+      instances: "{{ PARENT_PROJECT_QUOTA.openstack_quotas.compute.instances }}"
+      key_pairs: "{{ PARENT_PROJECT_QUOTA.openstack_quotas.compute.key_pairs }}"
+      ram: "{{ PARENT_PROJECT_QUOTA.openstack_quotas.compute.ram }}"
+      server_group_members: "{{ PARENT_PROJECT_QUOTA.openstack_quotas.compute.server_group_members }}"
+      server_groups: "{{ PARENT_PROJECT_QUOTA.openstack_quotas.compute.server_groups }}"
+      floating_ips: "{{ PARENT_PROJECT_QUOTA.openstack_quotas.network.floatingip }}"
+      network: "{{ PARENT_PROJECT_QUOTA.openstack_quotas.network.network }}"
+      port: "{{ PARENT_PROJECT_QUOTA.openstack_quotas.network.port }}"
+      rbac_policy: "{{ PARENT_PROJECT_QUOTA.openstack_quotas.network.rbac_policy }}"
+      router: "{{ PARENT_PROJECT_QUOTA.openstack_quotas.network.router }}"
+      security_group: "{{ PARENT_PROJECT_QUOTA.openstack_quotas.network.security_group }}"
+      security_group_rule: "{{ PARENT_PROJECT_QUOTA.openstack_quotas.network.security_group_rule }}"
+      subnet: "{{ PARENT_PROJECT_QUOTA.openstack_quotas.network.subnet }}"
+      subnetpool: "{{ PARENT_PROJECT_QUOTA.openstack_quotas.network.subnetpool }}"
+      backup_gigabytes: "{{ PARENT_PROJECT_QUOTA.openstack_quotas.volume.backup_gigabytes }}"
+      backups: "{{ PARENT_PROJECT_QUOTA.openstack_quotas.volume.backups }}"
+      gigabytes: "{{ PARENT_PROJECT_QUOTA.openstack_quotas.volume.gigabytes }}"
+      per_volume_gigabytes: "{{ PARENT_PROJECT_QUOTA.openstack_quotas.volume.per_volume_gigabytes }}"
+      snapshots: "{{ PARENT_PROJECT_QUOTA.openstack_quotas.volume.snapshots }}"
+      volumes: "{{ PARENT_PROJECT_QUOTA.openstack_quotas.volume.volumes }}"

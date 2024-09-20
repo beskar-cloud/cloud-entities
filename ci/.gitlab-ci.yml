@@ -1,0 +1,57 @@
+include:
+  - project: 'cloud/ci-cd-scripts'
+    file:
+      - '/ci-templates/image-build.yml'
+      - '/ci-templates/image-release.yml'
+
+stages:
+- env-setup
+- build-image
+- release-image
+
+prepare-variables:
+  stage: env-setup
+  image:
+    name: bash
+    entrypoint: [""]
+  script:
+    - version=$(ci/version.sh CHANGELOG.md)
+    - echo "VERSION=${version}" > vars.env
+  artifacts:
+    reports:
+      dotenv: vars.env
+
+.common-image-job-sections:
+  variables:
+    CONTEXT_DIR: "ci/container"
+  needs:
+    - prepare-variables
+  before_script: |
+    if [ -z "$VERSION" ]; then
+      echo "VERSION env.var cannot be empty"
+      exit 1
+    fi
+
+# build and release container image
+# ---------------------------------------------------------------------------
+build-image:
+  extends:
+    - .build-image-job-template
+    - .common-image-job-sections
+  stage: build-image
+  variables:
+    EXTRA_BUILD_ARGS: '--build-arg VERSION=${VERSION}'
+
+# release container image
+# ---------------------------------------------------------------------------
+release-image:
+  extends:
+    - .release-image-job-template
+    - .common-image-job-sections
+  stage: release-image
+  variables:
+    CONTAINER_IMAGE_TAGS: "${VERSION} latest"
+  only:
+    - /^v[0-9]+\.[0-9]+\.[0-9]+/
+  except:
+    - branches

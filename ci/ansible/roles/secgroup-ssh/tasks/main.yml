@@ -1,0 +1,7 @@
+- name: "Fetch all OpenStack projects"
+  openstack.cloud.project_info:
+  register: PROJECT_LIST
+
+- name: "Add ssh secgroup to projects, where does not exist"
+  include_tasks: "create_secgroup_ssh.yml"
+  loop: "{{ PROJECT_LIST.projects }}"
