@@ -14,7 +14,7 @@ project:
   - children-project-clean-up.shutoff-period-days=180
   - children-project-clean-up.cleanup-period-days=190
   - project_nested_quota_propagation.enable=true     # ostack quota (*) propagation to children projects
-  - egi.AppDB.enable_project_nested_propagation=true # AppDB appliances propagation to children projects
+  - egi.AppDB.project_nested_propagation.enable=true # AppDB appliances propagation to children projects
 quota: # (*)
   instances: 15
 acls: {}
