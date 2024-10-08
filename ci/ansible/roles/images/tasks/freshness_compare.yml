@@ -10,6 +10,27 @@
     msg: "Multiple images named {{ i_image_declaration.name }} detected"
   when: ostack_image_result.images | length > 1
 
+- name: debug time -- ostack_image_result.images 
+  debug: 
+    msg: "{{ ostack_image_result.images }}"
+
+- name: debug time -- ostack_image_result.images[0].properties
+  debug:
+    msg: "{{ ostack_image_result.images[0].properties }}"
+
+- name: debug time -- upstream_sha256_checksums
+  debug:
+    msg: "{{ upstream_sha256_checksums }}"
+
+- name: debug time -- i_image_declaration.image_source_url
+  debug:
+    msg: "{{ i_image_declaration.image_source_url }}"
+
+- name: debug time -- image_source_url != pre_upload_sha256sum
+  debug:
+    msg: "{{ upstream_sha256_checksums[i_image_declaration.image_source_url] }}, {{ ostack_image_result.images[0].properties.pre_upload_sha256sum }}"
+
+
 - block:
   - name: "{{ i_image_declaration.name }} image will be rotated"
     set_fact:

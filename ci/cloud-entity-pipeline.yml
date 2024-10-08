@@ -117,7 +117,7 @@ ost-nested-quota-propagation:
   script:
     - ansible-playbook ci/ansible/nested-quota-propagation.yml
   rules:
-  - if: $OSTACK_NESTED_QUOTA_PROPAGATION != "false"
+  - if: $OSTACK_NESTED_QUOTA_PROPAGATION != "false" && $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
 
 ost-children-project-cleanup:
   <<: *ost-deploy-conditional-objs
@@ -125,4 +125,4 @@ ost-children-project-cleanup:
   script:
     - ansible-playbook ci/ansible/children-project-cleanup.yml
   rules:
-  - if: $OSTACK_CHILDREN_PROJECT_CLEANUP != "false"
+  - if: $OSTACK_CHILDREN_PROJECT_CLEANUP != "false" && $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
