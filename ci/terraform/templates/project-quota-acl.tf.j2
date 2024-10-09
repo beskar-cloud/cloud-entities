@@ -146,4 +146,30 @@ resource "openstack_compute_flavor_access_v2" "{{ domain_project_name }}_{{ i_fl
   {% endif %}
 {% endif %}
 
+# access to dedicated networks for the project
+{% if "networks" in acls %}
+  {% if acls["networks"]["access_as_external"] %}
+    {% for i_network in acls["networks"]["access_as_external"] %}
+      {%- set i_network_underscored = i_network | replace("-", "_") -%}
+resource "openstack_networking_rbac_policy_v2" "{{ domain_project_name }}_{{ i_network_underscored }}_ext" {
+  action        = "access_as_external"
+  object_id     = "${openstack_networking_network_v2.{{ i_network_underscored }}.id}"
+  object_type   = "network"
+  target_tenant = "${openstack_identity_project_v3.{{ domain_project_name }}.id}"
+}
+    {% endfor %}
+  {% endif %}
+  {% if acls["networks"]["access_as_shared"] %}
+    {% for i_network in acls["networks"]["access_as_shared"] %}
+      {%- set i_network_underscored = i_network | replace("-", "_") -%}
+resource "openstack_networking_rbac_policy_v2" "{{ domain_project_name }}_{{ i_network_underscored }}_shr" {
+  action        = "access_as_shared"
+  object_id     = "${openstack_networking_network_v2.{{ i_network_underscored }}.id}"
+  object_type   = "network"
+  target_tenant = "${openstack_identity_project_v3.{{ domain_project_name }}.id}"
+}
+    {% endfor %}
+  {% endif %}
+{% endif %}
+
 {% endif %}

@@ -50,14 +50,10 @@
   - "/tmp/{{ ostack_register_image_name }}.converted"
 
 - name: "Image {{ ostack_register_image_name }} from {{ upload_image_declaration.image_source_url }} with checksum_hash is stored locally"
-  vars:
-    combined_checksum_format: "{{ upload_image_declaration.image_source_checksum_type }}:{{ upload_image_declaration.checksum_hash }}"
   get_url:
     url: "{{ upload_image_declaration.image_source_url }}"
     dest: "/tmp/{{ ostack_register_image_name }}"
     mode: 0600
-    checksum: "{{ combined_checksum_format }}"
-  when: upload_image_declaration.checksum_hash is defined
 
 - name: "Image {{ ostack_register_image_name }} from {{ upload_image_declaration.image_source_url }} with checksum url {{ upload_image_declaration.image_source_checksum_url }} is stored locally"
   when: upload_image_declaration.image_source_checksum_url is defined
@@ -78,22 +74,25 @@
       msg: "{{ extracted_checksum_cmd_output.stdout }}"
 
   - name: "Download image {{ upload_image_declaration.image_source_url }}"
-    when: extracted_checksum_cmd_output.stdout != ""
     vars:
-      combined_checksum_format: "{{ upload_image_declaration.image_source_checksum_type }}:{{ extracted_checksum_cmd_output.stdout }}"
+      combined_checksum_format: "{{ upload_image_declaration.image_source_checksum_type }}:{{ extracted_checksum_cmd_output.stdout if extracted_checksum_cmd_output.stdout | length > 0 else '' }}"
     get_url:
       url: "{{ upload_image_declaration.image_source_url }}"
       dest: "/tmp/{{ ostack_register_image_name }}.original"
       mode: 0600
-      checksum: "{{ combined_checksum_format }}"
+      checksum: "{{ combined_checksum_format if extracted_checksum_cmd_output.stdout | length > 0 else omit }}"
 
-# test whether download is successfull
+# test whether download is successful
 
 - name: "Calculate SHA256 checksum of pre-converted image file"
   stat:
       path: "/tmp/{{ ostack_register_image_name }}.original"
       checksum_algorithm: sha256
   register: pre_upload_sha256sum_stat
+
+- name: "Print pre_upload_sha256sum_stat"
+  ansible.builtin.debug:
+    msg: "{{ pre_upload_sha256sum_stat }}"
 
 - name: "Define pre-upload checksum property from {{ upload_image_declaration.image_source_url }} (to be saved as {{ ostack_register_image_name }}) image"
   set_fact:
